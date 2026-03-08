@@ -1,21 +1,31 @@
 """
 TabFinder — FastAPI Application
 
-Single search endpoint that scrapes, scores, and returns the best guitar tabs.
+Multi-source search: queries jitashe (Chinese) and 911tabs (English) in parallel,
+merges and ranks results, returns the best tabs.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
+from enum import Enum
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.models import SearchResponse, ScoredTab, TabType, PlayStyle
-from backend.scraper import jitashe
+from backend.models import SearchResponse, TabResult, TabType, PlayStyle
+from backend.scraper import jitashe, tabs911
 from backend.scorer import score_tabs
+from backend.cache import search_cache
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class Source(str, Enum):
+    ALL = "all"
+    JITASHE = "jitashe"
+    TABS911 = "911tabs"
 
 
 @asynccontextmanager
@@ -28,18 +38,26 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="TabFinder",
     description="Find the best guitar tabs, fast.",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
-# Allow frontend dev server (Vite defaults to :5173)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+async def _fetch_source(name: str, coro) -> list[TabResult]:
+    """Fetch from a source with error handling — one source failing shouldn't kill the search."""
+    try:
+        return await coro
+    except Exception as e:
+        logger.warning(f"Source {name} failed: {e}")
+        return []
 
 
 @app.get("/api/search", response_model=SearchResponse)
@@ -48,33 +66,68 @@ async def search_tabs(
     top_n: int = Query(3, ge=1, le=10, description="Number of top results to return"),
     tab_type: TabType = Query(TabType.ANY, description="Preferred tab format"),
     style: PlayStyle = Query(PlayStyle.ANY, description="Preferred playing style"),
+    source: Source = Query(Source.ALL, description="Which sources to search"),
 ):
     """
-    Search for guitar tabs and return the top N ranked by quality.
+    Search for guitar tabs across multiple sources and return the top N ranked by quality.
 
-    Quality scoring considers: accuracy ratings, view count,
-    completeness (section tags), tab type match, and rating count.
+    Sources:
+    - jitashe: Chinese guitar tab community (best for Chinese songs)
+    - 911tabs: English tab aggregator (Ultimate Guitar, guitartabs.cc, etc.)
+    - all: Search both in parallel
     """
-    # Scrape
-    raw_results = await jitashe.search(song)
-    logger.info(f"Search '{song}': {len(raw_results)} raw results")
+    cache_key = f"{source.value}:{song}:{tab_type.value}:{style.value}"
+    cached = search_cache.get(cache_key)
+
+    if cached is not None:
+        raw_results = cached
+        logger.info(f"Cache hit for '{song}': {len(raw_results)} results")
+    else:
+        # Build list of sources to query
+        tasks: list[tuple[str, any]] = []
+        if source in (Source.ALL, Source.JITASHE):
+            tasks.append(("jitashe", jitashe.search(song)))
+        if source in (Source.ALL, Source.TABS911):
+            tasks.append(("911tabs", tabs911.search(song)))
+
+        # Fetch all sources in parallel
+        fetched = await asyncio.gather(
+            *[_fetch_source(name, coro) for name, coro in tasks]
+        )
+
+        # Merge results
+        raw_results: list[TabResult] = []
+        for result_list in fetched:
+            raw_results.extend(result_list)
+
+        search_cache.set(cache_key, raw_results)
+        logger.info(f"Search '{song}': {len(raw_results)} results from {len(tasks)} source(s)")
+
+    # Deduplicate by URL
+    seen_urls: set[str] = set()
+    unique_results: list[TabResult] = []
+    for r in raw_results:
+        if r.url not in seen_urls:
+            seen_urls.add(r.url)
+            unique_results.append(r)
 
     # Score & rank
     top_tabs = score_tabs(
-        raw_results,
+        unique_results,
         tab_type_pref=tab_type,
         style_pref=style,
         top_n=top_n,
     )
 
+    source_label = "jitashe.org + 911tabs.com" if source == Source.ALL else source.value
     return SearchResponse(
         song=song,
-        source="jitashe.org",
-        results_found=len(raw_results),
+        source=source_label,
+        results_found=len(unique_results),
         top_tabs=top_tabs,
     )
 
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "service": "tabfinder"}
+    return {"status": "ok", "service": "tabfinder", "version": "0.2.0"}

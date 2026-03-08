@@ -27,7 +27,10 @@ function TabCard({ tab }) {
       </div>
 
       <div className="tab-info">
-        <div className="tab-title">{tab.title}</div>
+        <div className="tab-title">
+          {tab.title}
+          <span className="tab-source-badge">{tab.source}</span>
+        </div>
         <div className="tab-artist">{tab.artist}</div>
 
         <div className="tab-meta">

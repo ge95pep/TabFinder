@@ -14,6 +14,7 @@ function App() {
     top_n: 3,
     tab_type: 'any',
     style: 'any',
+    source: 'all',
   })
 
   const handleSearch = async (song) => {
@@ -29,6 +30,7 @@ function App() {
         top_n: settings.top_n,
         tab_type: settings.tab_type,
         style: settings.style,
+        source: settings.source,
       })
 
       const resp = await fetch(`${API_BASE}/api/search?${params}`)

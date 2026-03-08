@@ -43,6 +43,18 @@ function Settings({ settings, onChange }) {
           <option value="独奏">独奏 (Solo)</option>
         </select>
       </label>
+
+      <label>
+        Source:
+        <select
+          value={settings.source}
+          onChange={(e) => update('source', e.target.value)}
+        >
+          <option value="all">All Sources</option>
+          <option value="jitashe">吉他社 (Chinese)</option>
+          <option value="911tabs">911Tabs (English)</option>
+        </select>
+      </label>
     </div>
   )
 }

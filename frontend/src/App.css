@@ -206,6 +206,20 @@ body {
   font-size: 1.1rem;
   font-weight: 600;
   margin-bottom: 0.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tab-source-badge {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  background: #1e3a2f;
+  color: var(--green);
+  border-radius: 4px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .tab-artist {

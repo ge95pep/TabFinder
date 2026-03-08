@@ -117,10 +117,14 @@ def _compute_scores(
         # No ratings at all
         accuracy_score = 30.0  # neutral baseline, not zero
 
-    # --- Views (0–100, log-scaled) ---
+    # --- Views / Popularity (0–100, log-scaled) ---
     if tab.views > 0 and max_views > 0:
         # Log scale so 1M views doesn't totally crush 100K views
         views_score = (math.log1p(tab.views) / math.log1p(max_views)) * 100
+    elif tab.num_ratings > 0:
+        # No view count (e.g., 911tabs) — use num_ratings as popularity proxy
+        # Log scale: 200+ votes → ~100, 50 votes → ~70, 5 votes → ~35
+        views_score = min(100, (math.log1p(tab.num_ratings) / math.log1p(200)) * 100)
     else:
         views_score = 0.0
 
