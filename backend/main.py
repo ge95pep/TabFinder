@@ -7,11 +7,15 @@ merges and ranks results, returns the best tabs.
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from enum import Enum
+from pathlib import Path
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from backend.models import SearchResponse, TabResult, TabType, PlayStyle
 from backend.scraper import jitashe, tabs911
@@ -131,3 +135,31 @@ async def search_tabs(
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "tabfinder", "version": "0.2.0"}
+
+
+# --- Serve frontend static files ---
+# Looks for built frontend in ../frontend/dist (dev) or ./static (Docker)
+_frontend_dirs = [
+    Path(__file__).parent.parent / "frontend" / "dist",  # dev
+    Path(__file__).parent.parent / "static",              # docker
+]
+
+for _static_dir in _frontend_dirs:
+    if _static_dir.is_dir():
+        @app.get("/")
+        async def index():
+            return FileResponse(_static_dir / "index.html")
+
+        # Mount static assets (JS, CSS) — must be after /api routes
+        app.mount("/assets", StaticFiles(directory=_static_dir / "assets"), name="assets")
+
+        # Catch-all for SPA routing (anything not /api/* falls back to index.html)
+        @app.get("/{path:path}")
+        async def spa_fallback(path: str):
+            file_path = _static_dir / path
+            if file_path.is_file():
+                return FileResponse(file_path)
+            return FileResponse(_static_dir / "index.html")
+
+        logger.info(f"Serving frontend from {_static_dir}")
+        break

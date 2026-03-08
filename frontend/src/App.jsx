@@ -4,7 +4,8 @@ import Results from './components/Results'
 import Settings from './components/Settings'
 import './App.css'
 
-const API_BASE = 'http://localhost:8888'
+// Use relative URL so it works behind any tunnel/proxy
+const API_BASE = ''
 
 function App() {
   const [results, setResults] = useState(null)
