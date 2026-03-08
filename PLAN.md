@@ -137,23 +137,23 @@ TabFinder/
 ## Milestones
 
 ### Phase 1 — Core Backend (MVP)
-- [ ] Project scaffolding (FastAPI + deps)
-- [ ] jitashe.org scraper (search + parse results)
-- [ ] Scoring engine with weighted formula
-- [ ] `/api/search` endpoint returning ranked tabs
-- [ ] Basic error handling + rate limiting (be nice to jitashe)
+- [x] Project scaffolding (FastAPI + deps)
+- [x] jitashe.org scraper (search + parse results)
+- [x] Scoring engine with weighted formula
+- [x] `/api/search` endpoint returning ranked tabs
+- [x] Basic error handling + rate limiting (be nice to jitashe)
 
 ### Phase 2 — Frontend
-- [ ] React app with search bar
-- [ ] Results display with score breakdown
-- [ ] User preference controls (tab type, style, top N)
-- [ ] Mobile-friendly responsive design
+- [x] React app with search bar
+- [x] Results display with score breakdown
+- [x] User preference controls (tab type, style, top N)
+- [x] Mobile-friendly responsive design
 
 ### Phase 3 — Polish & Extend
-- [ ] Result caching (avoid re-scraping same song within N minutes)
-- [ ] Ultimate Guitar as second source (English songs)
-- [ ] Multi-source result merging & dedup
-- [ ] Deploy (Docker or simple VPS)
+- [x] Result caching (avoid re-scraping same song within N minutes)
+- [x] 911tabs.com as second source (English songs) — UG blocked by Cloudflare
+- [x] Multi-source result merging & dedup
+- [x] Deploy (Docker + docker-compose)
 
 ### Phase 4 — Nice to Have
 - [ ] User accounts + saved searches
