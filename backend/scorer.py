@@ -107,8 +107,9 @@ def _compute_scores(
 
     # --- Accuracy (0–100) ---
     if tab.accuracy_rating is not None:
-        # Assuming 5-star scale
-        accuracy_score = (tab.accuracy_rating / 5.0) * 100
+        # Star level is 1–5 from CSS class
+        clamped = min(max(tab.accuracy_rating, 0.0), 5.0)
+        accuracy_score = (clamped / 5.0) * 100
     elif tab.num_ratings > 0:
         # Has ratings but we couldn't parse the stars — give partial credit
         accuracy_score = 50.0

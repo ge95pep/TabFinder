@@ -1,19 +1,25 @@
 """
 Scraper for jitashe.org (吉他社)
 
-Search results page structure (from /search/tab/{song}/):
-Each tab listing contains:
-  - Title (with link to /tab/{id}/)
-  - Artist (with link to /artist/{id}/)
-  - Uploader (with link to /space/{id}/)
-  - Ratings: 难易度 (difficulty) and 准确度 (accuracy)
-  - Number of raters
-  - View count
-  - Tab type: 图片谱 / GTP谱 / PDF谱 / 和弦谱
-  - Tags: 弹唱, 指弹, 前奏, 间奏, solo, 原版, etc.
+HTML structure of search results (from /search/tab/{song}/):
+
+div.tab-list#threadlist
+  └── div.tab-item              ← one per tab result
+        ├── div.icon            ← thumbnail
+        └── div.text
+              ├── a.title       ← tab title + link to /tab/{id}/
+              ├── div.rating-g  ← ratings block
+              │     ├── fieldset.star-level title="{score}"  ← 难易度
+              │     ├── fieldset.star-level title="{score}"  ← 准确度
+              │     └── span.rating-k "(N人评分)"
+              ├── div.info      ← artist, uploader, views, replies
+              │     ├── a.title2 href="/artist/{id}/"
+              │     ├── a href="/space/{id}/"   ← uploader
+              │     ├── span after icon-chakan  ← view count
+              │     └── span after icon-huifu   ← reply count
+              └── div.tags      ← tag links + tab type
 """
 
-import asyncio
 import re
 import logging
 from urllib.parse import quote
@@ -27,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://www.jitashe.org"
 SEARCH_URL = f"{BASE_URL}/search/tab/"
-REQUEST_DELAY = 1.0  # seconds between requests — be polite
 
 HEADERS = {
     "User-Agent": (
@@ -36,6 +41,11 @@ HEADERS = {
     ),
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 }
+
+# Proxy config — jitashe.org may need proxy depending on network
+PROXY = "http://127.0.0.1:7890/"
+
+TAB_TYPES = {"图片谱", "GTP谱", "PDF谱", "和弦谱"}
 
 
 async def search(song: str) -> list[TabResult]:
@@ -46,7 +56,12 @@ async def search(song: str) -> list[TabResult]:
     url = f"{SEARCH_URL}{quote(song)}/"
     logger.info(f"Searching jitashe: {url}")
 
-    async with httpx.AsyncClient(headers=HEADERS, timeout=15, follow_redirects=True) as client:
+    async with httpx.AsyncClient(
+        headers=HEADERS,
+        proxy=PROXY,
+        timeout=15,
+        follow_redirects=True,
+    ) as client:
         resp = await client.get(url)
         resp.raise_for_status()
 
@@ -55,108 +70,54 @@ async def search(song: str) -> list[TabResult]:
 
 
 def _parse_search_results(soup: BeautifulSoup) -> list[TabResult]:
-    """
-    Parse the search results page into TabResult objects.
+    """Parse all div.tab-item containers into TabResult objects."""
+    items = soup.select("div.tab-item")
+    logger.info(f"Found {len(items)} tab-item containers")
 
-    The page structure uses a thread list where each item contains
-    tab metadata. We need to handle multiple possible HTML structures
-    since the site may vary layouts.
-    """
     results: list[TabResult] = []
-
-    # Strategy 1: Look for structured list items with tab links
-    # Each result has a link to /tab/{id}/ — find all of them
-    tab_links = soup.find_all("a", href=re.compile(r"/tab/\d+/"))
-
-    # Deduplicate — same tab may appear multiple times in the page
-    seen_urls: set[str] = set()
-
-    for link in tab_links:
-        href = link.get("href", "")
-        full_url = href if href.startswith("http") else f"{BASE_URL}{href}"
-
-        if full_url in seen_urls:
-            continue
-        seen_urls.add(full_url)
-
-        title = link.get_text(strip=True)
-        if not title:
-            continue
-
-        # Walk up to find the parent container for this tab listing
-        container = _find_tab_container(link)
-        if container is None:
-            continue
-
-        result = _parse_single_tab(container, title, full_url)
+    for item in items:
+        result = _parse_tab_item(item)
         if result:
             results.append(result)
 
-    logger.info(f"Parsed {len(results)} tabs from jitashe")
     return results
 
 
-def _find_tab_container(element: Tag) -> Tag | None:
-    """
-    Walk up the DOM from a tab link to find the enclosing container
-    that holds all the metadata for that tab listing.
-    """
-    # Typically the container is a <li>, <div>, or <tr> a few levels up
-    current = element.parent
-    for _ in range(8):  # don't walk too far
-        if current is None:
-            return None
-        tag = current.name
-        if tag in ("li", "tr", "article"):
-            return current
-        # Also check for divs with list-like classes
-        if tag == "div":
-            classes = " ".join(current.get("class", []))
-            if any(kw in classes for kw in ["item", "list", "thread", "row", "entry"]):
-                return current
-        current = current.parent
-    return element.parent  # fallback: use immediate parent
+def _parse_tab_item(item: Tag) -> TabResult | None:
+    """Parse a single div.tab-item into a TabResult."""
 
+    # --- Title & URL ---
+    title_el = item.select_one("a.title")
+    if not title_el:
+        return None
 
-def _parse_single_tab(container: Tag, title: str, url: str) -> TabResult | None:
-    """Extract all metadata from a single tab listing container."""
-    text = container.get_text(" ", strip=True)
+    title = title_el.get_text(strip=True)
+    href = title_el.get("href", "")
+    url = href if href.startswith("http") else f"{BASE_URL}{href}"
 
     # --- Artist ---
     artist = ""
-    artist_link = container.find("a", href=re.compile(r"/artist/\d+/"))
-    if artist_link:
-        artist = artist_link.get_text(strip=True)
+    artist_el = item.select_one("a.title2")
+    if artist_el:
+        artist = artist_el.get_text(strip=True)
 
     # --- Uploader ---
     uploader = ""
     uploader_url = ""
-    uploader_link = container.find("a", href=re.compile(r"/space/\d+/"))
-    if uploader_link:
-        uploader = uploader_link.get_text(strip=True)
-        href = uploader_link.get("href", "")
-        uploader_url = href if href.startswith("http") else f"{BASE_URL}{href}"
-
-    # --- Tab type ---
-    tab_type = ""
-    for t in ["图片谱", "GTP谱", "PDF谱", "和弦谱"]:
-        if t in text:
-            tab_type = t
-            break
-
-    # --- Tags ---
-    tags: list[str] = []
-    tag_links = container.find_all("a", href=re.compile(r"/tag/\d+/"))
-    for tl in tag_links:
-        tag_text = tl.get_text(strip=True)
-        if tag_text:
-            tags.append(tag_text)
-
-    # --- Views ---
-    views = _extract_views(container)
+    uploader_el = item.select_one('a[href*="/space/"]')
+    if uploader_el:
+        uploader = uploader_el.get_text(strip=True)
+        up_href = uploader_el.get("href", "")
+        uploader_url = up_href if up_href.startswith("http") else f"{BASE_URL}{up_href}"
 
     # --- Ratings ---
-    accuracy, difficulty, num_ratings = _extract_ratings(container)
+    difficulty, accuracy, num_ratings = _parse_ratings(item)
+
+    # --- Views ---
+    views = _parse_views(item)
+
+    # --- Tab type & Tags ---
+    tab_type, tags = _parse_tags(item)
 
     return TabResult(
         title=title,
@@ -174,64 +135,91 @@ def _parse_single_tab(container: Tag, title: str, url: str) -> TabResult | None:
     )
 
 
-def _extract_views(container: Tag) -> int:
+def _parse_ratings(item: Tag) -> tuple[float | None, float | None, int]:
     """
-    Extract view count from the container.
-    Views appear as a large number in the listing (e.g., 1192947).
+    Extract difficulty, accuracy, and num_ratings from the rating block.
+
+    Structure:
+      fieldset.star-level.star-level-{N}  (CSS class = displayed star level 1–5)
+      First fieldset = 难易度, second = 准确度
+      span.rating-k containing "(N人评分)"
+
+    The CSS class `star-level-N` is the reliable rating (1–5 scale).
+    The `title` attribute is the raw sum across all raters (not useful directly).
     """
-    # Look for patterns like "1192947" that aren't part of URLs
-    text = container.get_text(" ", strip=True)
-
-    # Find standalone large numbers (likely view counts)
-    # The view count is typically the largest number in the listing
-    numbers = re.findall(r"(?<!\d)(\d{2,})(?!\d)", text)
-
-    # Filter out numbers that look like IDs (from URLs) or dates
-    candidates: list[int] = []
-    for n in numbers:
-        val = int(n)
-        # View counts are typically > 10 and don't look like years
-        if val > 10 and not (1990 <= val <= 2030):
-            candidates.append(val)
-
-    # The largest number is most likely the view count
-    return max(candidates) if candidates else 0
-
-
-def _extract_ratings(container: Tag) -> tuple[float | None, float | None, int]:
-    """
-    Extract accuracy rating, difficulty rating, and number of raters.
-    Returns (accuracy, difficulty, num_ratings).
-
-    Ratings show as: 难易度: [stars] 准确度: [stars] (N人评分)
-    """
-    text = container.get_text(" ", strip=True)
-
+    difficulty = None
+    accuracy = None
     num_ratings = 0
-    rating_match = re.search(r"(\d+)\s*人评[分价]", text)
-    if rating_match:
-        num_ratings = int(rating_match.group(1))
 
-    # Star ratings are tricky — they might be rendered as images or CSS classes
-    # For now, we can check for star-related elements
-    accuracy = _count_stars(container, "准确度")
-    difficulty = _count_stars(container, "难易度")
+    # Number of raters
+    rating_block = item.select_one("div.rating-g")
+    if rating_block:
+        match = re.search(r"\((\d+)人评[分价]\)", rating_block.get_text())
+        if match:
+            num_ratings = int(match.group(1))
 
-    return accuracy, difficulty, num_ratings
+    # Star ratings from CSS class
+    fieldsets = item.select("fieldset.star-level")
+    if len(fieldsets) >= 1:
+        difficulty = _star_level_from_class(fieldsets[0])
+    if len(fieldsets) >= 2:
+        accuracy = _star_level_from_class(fieldsets[1])
+
+    return difficulty, accuracy, num_ratings
 
 
-def _count_stars(container: Tag, label: str) -> float | None:
-    """
-    Try to extract a star rating associated with a label.
-    jitashe uses various methods to display stars — we try multiple strategies.
-    """
-    # Strategy 1: Look for elements with star-related classes after the label
-    # Stars are often rendered as <i>, <span>, or <img> elements with class names
-    # like "star", "icon-star", etc.
-
-    # Strategy 2: Look for numeric rating in title/alt attributes
-    # Some sites put "4.5" in a title attribute
-
-    # For now, return None — we'll refine after testing with real HTML
-    # The num_ratings alone is still a useful quality signal
+def _star_level_from_class(fieldset: Tag) -> float | None:
+    """Extract star level (1–5) from CSS class like 'star-level-3'."""
+    classes = fieldset.get("class", [])
+    for cls in classes:
+        match = re.match(r"star-level-(\d+)", cls)
+        if match:
+            return float(match.group(1))
     return None
+
+
+def _parse_views(item: Tag) -> int:
+    """
+    Extract view count. Structure:
+      <span class="iconfont icon-chakan"></span>
+      <span>1192947</span>
+    """
+    icon = item.select_one("span.icon-chakan")
+    if icon:
+        # The view count is in the next sibling span
+        next_span = icon.find_next_sibling("span")
+        if next_span:
+            text = next_span.get_text(strip=True)
+            try:
+                return int(text)
+            except ValueError:
+                pass
+    return 0
+
+
+def _parse_tags(item: Tag) -> tuple[str, list[str]]:
+    """
+    Extract tab type and tags from the tags section.
+    Tab type appears as plain text (图片谱, GTP谱, etc.)
+    Tags appear as links to /tag/{id}/.
+
+    Returns (tab_type, [tag1, tag2, ...])
+    """
+    tab_type = ""
+    tags: list[str] = []
+
+    # Check full text for tab type keywords
+    text = item.get_text(" ", strip=True)
+    for t in TAB_TYPES:
+        if t in text:
+            tab_type = t
+            break
+
+    # Tag links
+    tag_links = item.select('a[href*="/tag/"]')
+    for tl in tag_links:
+        tag_text = tl.get_text(strip=True)
+        if tag_text and tag_text not in TAB_TYPES:
+            tags.append(tag_text)
+
+    return tab_type, tags
