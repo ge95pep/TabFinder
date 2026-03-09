@@ -20,6 +20,7 @@ Search page (/search.php?search={query}&type=any):
 Returns links to song pages at /tabs/{letter}/{artist}/{song}_tab.htm
 """
 
+import os
 import re
 import logging
 from urllib.parse import quote_plus
@@ -41,7 +42,8 @@ HEADERS = {
     ),
 }
 
-PROXY = "http://127.0.0.1:7890/"
+# Proxy config — set HTTP_PROXY env var if needed
+PROXY = os.environ.get("HTTP_PROXY") or os.environ.get("HTTPS_PROXY")
 
 # Map 911tabs type classes to our tab types
 TYPE_MAP = {

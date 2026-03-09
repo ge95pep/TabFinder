@@ -20,6 +20,7 @@ div.tab-list#threadlist
               └── div.tags      ← tag links + tab type
 """
 
+import os
 import re
 import logging
 from urllib.parse import quote
@@ -42,8 +43,8 @@ HEADERS = {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 }
 
-# Proxy config — jitashe.org may need proxy depending on network
-PROXY = "http://127.0.0.1:7890/"
+# Proxy config — set HTTP_PROXY env var if needed (e.g., behind GFW)
+PROXY = os.environ.get("HTTP_PROXY") or os.environ.get("HTTPS_PROXY")
 
 TAB_TYPES = {"图片谱", "GTP谱", "PDF谱", "和弦谱"}
 

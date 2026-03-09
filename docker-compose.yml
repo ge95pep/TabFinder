@@ -3,8 +3,9 @@ services:
     build: .
     ports:
       - "8888:8888"
-    environment:
-      - HTTP_PROXY=http://host.docker.internal:7890/
-      - HTTPS_PROXY=http://host.docker.internal:7890/
-      - NO_PROXY=localhost,127.0.0.1
+    # Uncomment below if you need a proxy (e.g., behind GFW)
+    # environment:
+    #   - HTTP_PROXY=http://host.docker.internal:7890/
+    #   - HTTPS_PROXY=http://host.docker.internal:7890/
+    #   - NO_PROXY=localhost,127.0.0.1
     restart: unless-stopped

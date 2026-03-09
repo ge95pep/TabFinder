@@ -155,7 +155,13 @@ TabFinder/
 - [x] Multi-source result merging & dedup
 - [x] Deploy (Docker + docker-compose)
 
-### Phase 4 — Nice to Have
+### Phase 4 — Cloud Deploy & Sharing
+- [ ] Deploy to Render (free tier) — accessible via public URL on any device
+- [ ] Remove hardcoded proxy settings from docker-compose (local-only concern)
+- [ ] Add `render.yaml` blueprint for one-click deploy
+- [ ] Share URL with friends — works on laptops, iPads, phones, anything with a browser
+
+### Phase 5 — Nice to Have
 - [ ] User accounts + saved searches
 - [ ] "Tab of the day" / trending
 - [ ] Browser extension for quick lookup
