@@ -4,7 +4,7 @@ Find the best guitar tabs, fast. Searches multiple sources, scores quality, retu
 
 ## Features
 
-- **Multi-source search** — [吉他社](https://www.jitashe.org) (Chinese) + [911Tabs](https://www.911tabs.com) (English)
+- **Multi-source search** — [吉他社](https://www.jitashe.org) (Chinese) + [谱全了](https://guistudy.com) (Chinese) + [911Tabs](https://www.911tabs.com) (English)
 - **Quality scoring** — Weighted algorithm considers accuracy ratings, popularity, completeness, and more
 - **Transparent ranking** — See exactly why each tab scored the way it did
 - **Filter by preference** — Tab type, playing style, number of results
@@ -40,6 +40,8 @@ docker compose up --build
 
 ```
 GET /api/search?song=晴天&top_n=3&source=all&tab_type=any&style=any
+
+# Source options: all, jitashe, guistudy, 911tabs
 GET /api/health
 ```
 

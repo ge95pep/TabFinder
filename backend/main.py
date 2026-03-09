@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from backend.models import SearchResponse, TabResult, TabType, PlayStyle
-from backend.scraper import jitashe, tabs911
+from backend.scraper import jitashe, tabs911, guistudy
 from backend.scorer import score_tabs
 from backend.cache import search_cache
 
@@ -30,6 +30,7 @@ class Source(str, Enum):
     ALL = "all"
     JITASHE = "jitashe"
     TABS911 = "911tabs"
+    GUISTUDY = "guistudy"
 
 
 @asynccontextmanager
@@ -93,6 +94,8 @@ async def search_tabs(
             tasks.append(("jitashe", jitashe.search(song)))
         if source in (Source.ALL, Source.TABS911):
             tasks.append(("911tabs", tabs911.search(song)))
+        if source in (Source.ALL, Source.GUISTUDY):
+            tasks.append(("guistudy", guistudy.search(song)))
 
         # Fetch all sources in parallel
         fetched = await asyncio.gather(
@@ -123,7 +126,13 @@ async def search_tabs(
         top_n=top_n,
     )
 
-    source_label = "jitashe.org + 911tabs.com" if source == Source.ALL else source.value
+    source_labels = {
+        Source.ALL: "jitashe.org + 911tabs.com + guistudy.com",
+        Source.JITASHE: "jitashe.org",
+        Source.TABS911: "911tabs.com",
+        Source.GUISTUDY: "guistudy.com",
+    }
+    source_label = source_labels.get(source, source.value)
     return SearchResponse(
         song=song,
         source=source_label,

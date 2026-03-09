@@ -52,6 +52,7 @@ function Settings({ settings, onChange }) {
         >
           <option value="all">All Sources</option>
           <option value="jitashe">吉他社 (Chinese)</option>
+          <option value="guistudy">谱全了 (Chinese)</option>
           <option value="911tabs">911Tabs (English)</option>
         </select>
       </label>
