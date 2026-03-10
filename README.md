@@ -10,6 +10,10 @@ Find the best guitar tabs, fast. Searches multiple sources, scores quality, retu
 - **Filter by preference** — Tab type, playing style, number of results
 - **Fast** — Parallel fetching + 10-minute result cache
 
+## Live Demo
+
+Deployed on [Render](https://render.com) — accessible from any device with a browser.
+
 ## Quick Start
 
 ### Development
@@ -61,7 +65,7 @@ Each tab is scored 0–100 based on:
 
 - **Backend:** Python, FastAPI, httpx, BeautifulSoup
 - **Frontend:** React, Vite
-- **Deployment:** Docker
+- **Deployment:** Docker, Render
 
 ## License
 

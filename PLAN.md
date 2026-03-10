@@ -43,9 +43,15 @@ Returns top N tabs with links + quality breakdown
   - Uploader name + profile link
   - Tab detail URL: `/tab/{id}/`
 
-### Future: Ultimate Guitar (for English songs)
-- Well-known API/scraping patterns exist
-- Would extend coverage beyond Chinese music
+### Added: guistudy.com (谱全了)
+- Chinese guitar/ukulele tab site with structured data
+- Search URL: `/tabs?q={song_name}`
+- Signals: title (song + artist + key + style), difficulty level, view count
+- Good complement to jitashe — different tab catalog
+
+### Added: 911tabs.com
+- English-language tab aggregator (replaced Ultimate Guitar which is blocked by Cloudflare)
+- Extends coverage to English songs
 
 ## Scoring Algorithm
 
@@ -115,14 +121,19 @@ Each tab gets a **quality score** (0–100) based on weighted signals:
 TabFinder/
 ├── PLAN.md              ← you are here
 ├── README.md            ← user-facing docs
+├── Dockerfile
+├── docker-compose.yml
 ├── backend/
 │   ├── main.py          ← FastAPI app entry
 │   ├── scraper/
 │   │   ├── __init__.py
 │   │   ├── jitashe.py   ← jitashe.org scraper
+│   │   ├── guistudy.py  ← guistudy.com scraper
+│   │   ├── tabs911.py   ← 911tabs.com scraper
 │   │   └── base.py      ← abstract scraper interface
 │   ├── scorer.py        ← quality scoring engine
 │   ├── models.py        ← Pydantic models
+│   ├── cache.py         ← result caching
 │   └── requirements.txt
 ├── frontend/
 │   ├── package.json
@@ -156,10 +167,10 @@ TabFinder/
 - [x] Deploy (Docker + docker-compose)
 
 ### Phase 4 — Cloud Deploy & Sharing
-- [ ] Deploy to Render (free tier) — accessible via public URL on any device
-- [ ] Remove hardcoded proxy settings from docker-compose (local-only concern)
+- [x] Deploy to Render (free tier) — accessible via public URL on any device
+- [x] Remove hardcoded proxy settings from docker-compose (commented out, local-only concern)
 - [ ] Add `render.yaml` blueprint for one-click deploy
-- [ ] Share URL with friends — works on laptops, iPads, phones, anything with a browser
+- [x] Share URL with friends — works on laptops, iPads, phones, anything with a browser
 
 ### Phase 5 — Nice to Have
 - [ ] User accounts + saved searches
