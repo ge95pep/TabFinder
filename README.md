@@ -12,7 +12,7 @@ Find the best guitar tabs, fast. Searches multiple sources, scores quality, retu
 
 ## Live Demo
 
-Deployed on [Render](https://render.com) — accessible from any device with a browser.
+Deployed at [tabfinder.onrender.com](https://tabfinder.onrender.com) — accessible from any device with a browser.
 
 ## Quick Start
 
